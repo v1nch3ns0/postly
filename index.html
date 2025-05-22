@@ -141,11 +141,9 @@
   </div>
   <div id="hint">Press <b>E</b> to add a sticky note at your mouse position</div>
   <script>
-async function callApi() {
-  const res = await fetch('https://server-dcp6.onrender.com');
-  const data = await res.json();
-  document.getElementById("result").innerText = data.message;
-}
+// CHANGE THIS to your Render backend URL!
+const API_BASE = "https://server-dcp6.onrender.com";
+
 let notes = [];
 const currentUser = localStorage.getItem('user');
 let editingKey = null;
@@ -207,23 +205,40 @@ function renderNotes(newNotes) {
 }
 
 function loadNotes() {
-  fetch("/notes")
+  fetch(`${API_BASE}/notes`)
     .then(res => res.json())
     .then(data => {
       renderNotes(data);
+    })
+    .catch(err => {
+      console.error("Failed to load notes:", err);
+      alert("Failed to load notes from backend.");
     });
 }
 
 function addNote(note) {
-  fetch("/add_note", {
+  console.log("addNote called", note);
+  fetch(`${API_BASE}/add_note`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(note)
-  }).then(loadNotes);
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Failed to add note");
+    return res.text();
+  })
+  .then(() => {
+    console.log("Note added, reloading notes");
+    loadNotes();
+  })
+  .catch(err => {
+    alert("Failed to add note. Check your backend is running and CORS is enabled.");
+    console.error(err);
+  });
 }
 
 function removeNote(note) {
-  fetch("/remove_note", {
+  fetch(`${API_BASE}/remove_note`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(note)
@@ -231,7 +246,7 @@ function removeNote(note) {
 }
 
 function updateNote(note) {
-  fetch("/update_note", {
+  fetch(`${API_BASE}/update_note`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(note)
@@ -298,6 +313,7 @@ document.addEventListener("keydown", (e) => {
     editingKey === null
   ) {
     placing = true;
+    console.log("Preview note created at", mouseX, mouseY);
 
     previewDiv = document.createElement("div");
     previewDiv.className = "note preview-note";
@@ -315,7 +331,10 @@ document.addEventListener("keydown", (e) => {
         const x = ev.clientX - 105;
         const y = ev.clientY - 80;
         const newNote = { text: "", x, y, user: currentUser };
+        console.log("Placing note at", x, y, newNote);
         addNote(newNote);
+      } else {
+        console.log("Not placing note: hoveringNote or editingKey is set");
       }
       document.removeEventListener("click", placeNote);
     }
@@ -328,7 +347,6 @@ document.addEventListener("keydown", (e) => {
 
 setInterval(loadNotes, 2000);
 loadNotes();
-callApi()
   </script>
 </body>
 </html>
