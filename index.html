@@ -263,6 +263,13 @@ function createNote(note) {
   div.addEventListener('mouseenter', () => { hoveringNote = true; });
   div.addEventListener('mouseleave', () => { hoveringNote = false; });
 
+  // Add username at the top in bold
+  const userSpan = document.createElement("div");
+  userSpan.style.fontWeight = "bold";
+  userSpan.style.marginBottom = "6px";
+  userSpan.textContent = note.user;
+  div.appendChild(userSpan);
+
   const textarea = document.createElement("textarea");
   textarea.value = note.text || "";
   textarea.disabled = note.user !== currentUser;
