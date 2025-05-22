@@ -141,6 +141,11 @@
   </div>
   <div id="hint">Press <b>E</b> to add a sticky note at your mouse position</div>
   <script>
+async function callApi() {
+  const res = await fetch('https://server-dcp6.onrender.com');
+  const data = await res.json();
+  document.getElementById("result").innerText = data.message;
+}
 let notes = [];
 const currentUser = localStorage.getItem('user');
 let editingKey = null;
@@ -323,6 +328,7 @@ document.addEventListener("keydown", (e) => {
 
 setInterval(loadNotes, 2000);
 loadNotes();
+callApi()
   </script>
 </body>
 </html>
