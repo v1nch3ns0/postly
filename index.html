@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sticky Notes Board</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap');
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #f0f0f0;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    .note {
+      position: absolute;
+      width: 210px;
+      height: 160px;
+      background: linear-gradient(135deg, #fffbe6 85%, #ffe066 100%);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 1.5px 0 #ffe066 inset;
+      padding: 14px 12px 12px 16px;
+      overflow: hidden;
+      border-radius: 10px 10px 18px 10px;
+      font-family: 'Indie Flower', cursive, sans-serif;
+      font-size: 16px;
+      transition: box-shadow 0.2s;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+    }
+    .note:after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #ffe066 60%, #fffbe6 100%);
+      border-bottom-right-radius: 10px 18px;
+      box-shadow: -3px 3px 8px rgba(0,0,0,0.07);
+      transform: rotate(8deg);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .preview-note {
+      pointer-events: none;
+      opacity: 0.7;
+      border: 2px dashed #ffda77;
+      background: rgba(255,255,230,0.5);
+      z-index: 9999;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      resize: none;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      color: #444;
+      line-height: 1.4;
+      overflow: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      background: #ff7675;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      z-index: 2;
+      transition: background 0.15s;
+    }
+    .remove-btn:hover {
+      background: #d63031;
+    }
+    #userBar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,230,0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 6px 18px 6px 16px;
+      gap: 16px;
+    }
+    #userDisplay {
+      font-family: sans-serif;
+      font-size: 18px;
+      color: #444;
+    }
+    #logoutBtn {
+      padding: 6px 18px;
+      background: #ff7675;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: background 0.15s;
+    }
+    #logoutBtn:hover {
+      background: #d63031;
+    }
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fffbe6;
+      color: #444;
+      font-family: 'Indie Flower', cursive, sans-serif;
+      font-size: 18px;
+      padding: 10px 28px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      opacity: 0.92;
+      z-index: 10001;
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="userBar">
+    <span id="userDisplay"></span>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <div id="hint">Press <b>E</b> to add a sticky note at your mouse position</div>
+  <script>
+let notes = [];
+const currentUser = localStorage.getItem('user');
+let editingKey = null;
+let hoveringNote = false;
+let mouseX = window.innerWidth / 2;
+let mouseY = window.innerHeight / 2;
+let previewDiv = null;
+let placing = false;
+
+if (!currentUser) {
+  window.location = 'login.html';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('userDisplay').textContent = `Logged in as: ${currentUser}`;
+  document.getElementById('logoutBtn').onclick = () => {
+    localStorage.removeItem('user');
+    window.location = 'login.html';
+  };
+});
+
+function noteKey(note) {
+  return `${note.x},${note.y},${note.user}`;
+}
+
+function renderNotes(newNotes) {
+  const existing = {};
+  document.querySelectorAll('.note').forEach(div => {
+    // Do not touch the preview note!
+    if (div.classList.contains('preview-note')) return;
+    const key = div.dataset.key;
+    existing[key] = div;
+  });
+
+  newNotes.forEach(note => {
+    const key = noteKey(note);
+    let div = existing[key];
+    if (!div) {
+      div = createNote(note);
+      div.dataset.key = key;
+      document.body.appendChild(div);
+    }
+    const textarea = div.querySelector('textarea');
+    if (editingKey !== key && textarea.value !== (note.text || "")) {
+      textarea.value = note.text || "";
+    }
+    const btn = div.querySelector('button');
+    if (btn) btn.style.display = note.user === currentUser ? "" : "none";
+    textarea.disabled = note.user !== currentUser;
+  });
+
+  Object.keys(existing).forEach(key => {
+    if (!newNotes.some(note => noteKey(note) === key)) {
+      existing[key].remove();
+    }
+  });
+
+  notes = newNotes;
+}
+
+function loadNotes() {
+  fetch("/notes")
+    .then(res => res.json())
+    .then(data => {
+      renderNotes(data);
+    });
+}
+
+function addNote(note) {
+  fetch("/add_note", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note)
+  }).then(loadNotes);
+}
+
+function removeNote(note) {
+  fetch("/remove_note", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note)
+  }).then(loadNotes);
+}
+
+function updateNote(note) {
+  fetch("/update_note", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note)
+  });
+}
+
+function createNote(note) {
+  const div = document.createElement("div");
+  div.className = "note";
+  div.style.left = note.x + "px";
+  div.style.top = note.y + "px";
+  div.dataset.key = noteKey(note);
+
+  div.addEventListener('mouseenter', () => { hoveringNote = true; });
+  div.addEventListener('mouseleave', () => { hoveringNote = false; });
+
+  const textarea = document.createElement("textarea");
+  textarea.value = note.text || "";
+  textarea.disabled = note.user !== currentUser;
+
+  textarea.addEventListener('focus', () => {
+    editingKey = noteKey(note);
+  });
+  textarea.addEventListener('blur', () => {
+    editingKey = null;
+  });
+  textarea.addEventListener('input', () => {
+    note.text = textarea.value;
+    updateNote(note);
+  });
+
+  div.appendChild(textarea);
+
+  if (note.user === currentUser) {
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "Remove";
+    removeBtn.className = "remove-btn";
+    removeBtn.onclick = () => {
+      div.remove();
+      removeNote(note);
+    };
+    div.appendChild(removeBtn);
+  }
+
+  return div;
+}
+
+// Track mouse position for preview and note placement
+window.addEventListener("mousemove", (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  if (previewDiv) {
+    previewDiv.style.left = (mouseX - 105) + "px";
+    previewDiv.style.top = (mouseY - 80) + "px";
+  }
+});
+
+// Listen for "E" key to start placing a note with preview
+document.addEventListener("keydown", (e) => {
+  if (
+    e.key.toLowerCase() === "e" &&
+    !placing &&
+    !hoveringNote &&
+    editingKey === null
+  ) {
+    placing = true;
+
+    previewDiv = document.createElement("div");
+    previewDiv.className = "note preview-note";
+    previewDiv.style.left = (mouseX - 105) + "px";
+    previewDiv.style.top = (mouseY - 80) + "px";
+    document.body.appendChild(previewDiv);
+
+    function placeNote(ev) {
+      if (previewDiv) previewDiv.remove();
+      previewDiv = null;
+      placing = false;
+
+      // Only place if not on a note
+      if (!hoveringNote && editingKey === null) {
+        const x = ev.clientX - 105;
+        const y = ev.clientY - 80;
+        const newNote = { text: "", x, y, user: currentUser };
+        addNote(newNote);
+      }
+      document.removeEventListener("click", placeNote);
+    }
+
+    setTimeout(() => {
+      document.addEventListener("click", placeNote);
+    }, 10);
+  }
+});
+
+setInterval(loadNotes, 2000);
+loadNotes();
+  </script>
+</body>
+</html>

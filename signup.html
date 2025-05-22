@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign Up - Sticky Notes Board</title>
+  <style>
+    body { background: #f0f0f0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    form { background: #fffbe6; padding: 32px 24px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.10);}
+    input { display: block; margin: 12px 0; padding: 10px; width: 220px; border-radius: 6px; border: 1px solid #ffe066; }
+    button { padding: 10px 28px; background: #ffe066; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; }
+    a { display: block; margin-top: 16px; color: #ffb700; text-align: center; }
+  </style>
+</head>
+<body>
+  <form id="signupForm">
+    <h2>Sign Up</h2>
+    <input type="text" id="username" placeholder="Username" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button type="submit">Sign Up</button>
+    <a href="login.html">Already have an account? Login</a>
+    <div id="msg" style="color:red;margin-top:10px;"></div>
+  </form>
+  <script>
+    document.getElementById('signupForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('/signup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('user', username);
+        window.location = 'index.html';
+      } else {
+        document.getElementById('msg').textContent = data.message;
+      }
+    }
+  </script>
+</body>
+</html>
