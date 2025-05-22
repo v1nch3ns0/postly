@@ -21,11 +21,14 @@
     <div id="msg" style="color:red;margin-top:10px;"></div>
   </form>
   <script>
+    // CHANGE THIS to your Render backend URL!
+    const API_BASE = "https://server-dcp6.onrender.com";
+
     document.getElementById('signupForm').onsubmit = async function(e) {
       e.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
-      const res = await fetch('/signup', {
+      const res = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({username, password})
