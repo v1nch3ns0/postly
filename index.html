@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Postly</title>
+  <title>Sticky Notes Board</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap');
     html, body {
@@ -102,6 +102,11 @@
       font-size: 18px;
       color: #444;
     }
+    #onlineCount {
+      margin-left: 20px;
+      color: #888;
+      font-size: 16px;
+    }
     #logoutBtn {
       padding: 6px 18px;
       background: #ff7675;
@@ -137,223 +142,229 @@
 <body>
   <div id="userBar">
     <span id="userDisplay"></span>
+    <span id="onlineCount"></span>
     <button id="logoutBtn">Logout</button>
   </div>
   <div id="hint">Press <b>E</b> to add a sticky note at your mouse position</div>
   <script>
-// CHANGE THIS to your Render backend URL!
-const API_BASE = "https://server-dcp6.onrender.com";
+    // CHANGE THIS to your Render backend URL!
+    const API_BASE = "https://server-dcp6.onrender.com";
 
-let notes = [];
-const currentUser = localStorage.getItem('user');
-let editingKey = null;
-let hoveringNote = false;
-let mouseX = window.innerWidth / 2;
-let mouseY = window.innerHeight / 2;
-let previewDiv = null;
-let placing = false;
+    let notes = [];
+    const currentUser = localStorage.getItem('user');
+    let editingKey = null;
+    let hoveringNote = false;
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let previewDiv = null;
+    let placing = false;
 
-if (!currentUser) {
-  window.location = 'login.html';
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('userDisplay').textContent = `Logged in as: ${currentUser}`;
-  document.getElementById('logoutBtn').onclick = () => {
-    localStorage.removeItem('user');
-    window.location = 'login.html';
-  };
-});
-
-function noteKey(note) {
-  return `${note.x},${note.y},${note.user}`;
-}
-
-function renderNotes(newNotes) {
-  const existing = {};
-  document.querySelectorAll('.note').forEach(div => {
-    // Do not touch the preview note!
-    if (div.classList.contains('preview-note')) return;
-    const key = div.dataset.key;
-    existing[key] = div;
-  });
-
-  newNotes.forEach(note => {
-    const key = noteKey(note);
-    let div = existing[key];
-    if (!div) {
-      div = createNote(note);
-      div.dataset.key = key;
-      document.body.appendChild(div);
+    if (!currentUser) {
+      window.location = 'login.html';
     }
-    const textarea = div.querySelector('textarea');
-    if (editingKey !== key && textarea.value !== (note.text || "")) {
-      textarea.value = note.text || "";
-    }
-    const btn = div.querySelector('button');
-    if (btn) btn.style.display = note.user === currentUser ? "" : "none";
-    textarea.disabled = note.user !== currentUser;
-  });
 
-  Object.keys(existing).forEach(key => {
-    if (!newNotes.some(note => noteKey(note) === key)) {
-      existing[key].remove();
-    }
-  });
-
-  notes = newNotes;
-}
-
-function loadNotes() {
-  fetch(`${API_BASE}/notes`)
-    .then(res => res.json())
-    .then(data => {
-      renderNotes(data);
-    })
-    .catch(err => {
-      console.error("Failed to load notes:", err);
-      alert("Failed to load notes from backend.");
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('userDisplay').textContent = `Logged in as: ${currentUser}`;
+      document.getElementById('logoutBtn').onclick = () => {
+        localStorage.removeItem('user');
+        window.location = 'login.html';
+      };
     });
-}
 
-function addNote(note) {
-  console.log("addNote called", note);
-  fetch(`${API_BASE}/add_note`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(note)
-  })
-  .then(res => {
-    if (!res.ok) throw new Error("Failed to add note");
-    return res.text();
-  })
-  .then(() => {
-    console.log("Note added, reloading notes");
-    loadNotes();
-  })
-  .catch(err => {
-    alert("Failed to add note. Check your backend is running and CORS is enabled.");
-    console.error(err);
-  });
-}
-
-function removeNote(note) {
-  fetch(`${API_BASE}/remove_note`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(note)
-  }).then(loadNotes);
-}
-
-function updateNote(note) {
-  fetch(`${API_BASE}/update_note`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(note)
-  });
-}
-
-function createNote(note) {
-  const div = document.createElement("div");
-  div.className = "note";
-  div.style.left = note.x + "px";
-  div.style.top = note.y + "px";
-  div.dataset.key = noteKey(note);
-
-  div.addEventListener('mouseenter', () => { hoveringNote = true; });
-  div.addEventListener('mouseleave', () => { hoveringNote = false; });
-
-  // Add username at the top in bold
-  const userSpan = document.createElement("div");
-  userSpan.style.fontWeight = "bold";
-  userSpan.style.marginBottom = "6px";
-  userSpan.textContent = note.user;
-  div.appendChild(userSpan);
-
-  const textarea = document.createElement("textarea");
-  textarea.value = note.text || "";
-  textarea.disabled = note.user !== currentUser;
-
-  textarea.addEventListener('focus', () => {
-    editingKey = noteKey(note);
-  });
-  textarea.addEventListener('blur', () => {
-    editingKey = null;
-  });
-  textarea.addEventListener('input', () => {
-    note.text = textarea.value;
-    updateNote(note);
-  });
-
-  div.appendChild(textarea);
-
-  if (note.user === currentUser) {
-    const removeBtn = document.createElement("button");
-    removeBtn.textContent = "Remove";
-    removeBtn.className = "remove-btn";
-    removeBtn.onclick = () => {
-      div.remove();
-      removeNote(note);
-    };
-    div.appendChild(removeBtn);
-  }
-
-  return div;
-}
-
-// Track mouse position for preview and note placement
-window.addEventListener("mousemove", (e) => {
-  mouseX = e.clientX;
-  mouseY = e.clientY;
-  if (previewDiv) {
-    previewDiv.style.left = (mouseX - 105) + "px";
-    previewDiv.style.top = (mouseY - 80) + "px";
-  }
-});
-
-// Listen for "E" key to start placing a note with preview
-document.addEventListener("keydown", (e) => {
-  if (
-    e.key.toLowerCase() === "e" &&
-    !placing &&
-    !hoveringNote &&
-    editingKey === null
-  ) {
-    placing = true;
-    console.log("Preview note created at", mouseX, mouseY);
-
-    previewDiv = document.createElement("div");
-    previewDiv.className = "note preview-note";
-    previewDiv.style.left = (mouseX - 105) + "px";
-    previewDiv.style.top = (mouseY - 80) + "px";
-    document.body.appendChild(previewDiv);
-
-    function placeNote(ev) {
-      if (previewDiv) previewDiv.remove();
-      previewDiv = null;
-      placing = false;
-
-      // Only place if not on a note
-      if (!hoveringNote && editingKey === null) {
-        const x = ev.clientX - 105;
-        const y = ev.clientY - 80;
-        const newNote = { text: "", x, y, user: currentUser };
-        console.log("Placing note at", x, y, newNote);
-        addNote(newNote);
-      } else {
-        console.log("Not placing note: hoveringNote or editingKey is set");
-      }
-      document.removeEventListener("click", placeNote);
+    function noteKey(note) {
+      return `${note.x},${note.y},${note.user}`;
     }
 
-    setTimeout(() => {
-      document.addEventListener("click", placeNote);
-    }, 10);
-  }
-});
+    function renderNotes(newNotes) {
+      const existing = {};
+      document.querySelectorAll('.note').forEach(div => {
+        // Do not touch the preview note!
+        if (div.classList.contains('preview-note')) return;
+        const key = div.dataset.key;
+        existing[key] = div;
+      });
 
-setInterval(loadNotes, 2000);
-loadNotes();
+      newNotes.forEach(note => {
+        const key = noteKey(note);
+        let div = existing[key];
+        if (!div) {
+          div = createNote(note);
+          div.dataset.key = key;
+          document.body.appendChild(div);
+        }
+        const textarea = div.querySelector('textarea');
+        if (editingKey !== key && textarea.value !== (note.text || "")) {
+          textarea.value = note.text || "";
+        }
+        const btn = div.querySelector('button');
+        if (btn) btn.style.display = note.user === currentUser ? "" : "none";
+        textarea.disabled = note.user !== currentUser;
+      });
+
+      Object.keys(existing).forEach(key => {
+        if (!newNotes.some(note => noteKey(note) === key)) {
+          existing[key].remove();
+        }
+      });
+
+      notes = newNotes;
+    }
+
+    function loadNotes() {
+      fetch(`${API_BASE}/notes?user=${encodeURIComponent(currentUser)}`)
+        .then(res => res.json())
+        .then(data => {
+          renderNotes(data);
+        })
+        .catch(err => {
+          console.error("Failed to load notes:", err);
+          alert("Failed to load notes from backend.");
+        });
+    }
+
+    function addNote(note) {
+      fetch(`${API_BASE}/add_note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(note)
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to add note");
+        return res.text();
+      })
+      .then(() => {
+        loadNotes();
+      })
+      .catch(err => {
+        alert("Failed to add note. Check your backend is running and CORS is enabled.");
+        console.error(err);
+      });
+    }
+
+    function removeNote(note) {
+      fetch(`${API_BASE}/remove_note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(note)
+      }).then(loadNotes);
+    }
+
+    function updateNote(note) {
+      fetch(`${API_BASE}/update_note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(note)
+      });
+    }
+
+    function createNote(note) {
+      const div = document.createElement("div");
+      div.className = "note";
+      div.style.left = note.x + "px";
+      div.style.top = note.y + "px";
+      div.dataset.key = noteKey(note);
+
+      div.addEventListener('mouseenter', () => { hoveringNote = true; });
+      div.addEventListener('mouseleave', () => { hoveringNote = false; });
+
+      // Username in bold at the top
+      const userSpan = document.createElement("div");
+      userSpan.style.fontWeight = "bold";
+      userSpan.style.marginBottom = "6px";
+      userSpan.textContent = note.user;
+      div.appendChild(userSpan);
+
+      const textarea = document.createElement("textarea");
+      textarea.value = note.text || "";
+      textarea.disabled = note.user !== currentUser;
+
+      textarea.addEventListener('focus', () => {
+        editingKey = noteKey(note);
+      });
+      textarea.addEventListener('blur', () => {
+        editingKey = null;
+      });
+      textarea.addEventListener('input', () => {
+        note.text = textarea.value;
+        updateNote(note);
+      });
+
+      div.appendChild(textarea);
+
+      if (note.user === currentUser) {
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.className = "remove-btn";
+        removeBtn.onclick = () => {
+          div.remove();
+          removeNote(note);
+        };
+        div.appendChild(removeBtn);
+      }
+
+      return div;
+    }
+
+    // Track mouse position for preview and note placement
+    window.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (previewDiv) {
+        previewDiv.style.left = (mouseX - 105) + "px";
+        previewDiv.style.top = (mouseY - 80) + "px";
+      }
+    });
+
+    // Listen for "E" key to start placing a note with preview
+    document.addEventListener("keydown", (e) => {
+      if (
+        e.key.toLowerCase() === "e" &&
+        !placing &&
+        !hoveringNote &&
+        editingKey === null
+      ) {
+        placing = true;
+
+        previewDiv = document.createElement("div");
+        previewDiv.className = "note preview-note";
+        previewDiv.style.left = (mouseX - 105) + "px";
+        previewDiv.style.top = (mouseY - 80) + "px";
+        document.body.appendChild(previewDiv);
+
+        function placeNote(ev) {
+          if (previewDiv) previewDiv.remove();
+          previewDiv = null;
+          placing = false;
+
+          // Only place if not on a note
+          if (!hoveringNote && editingKey === null) {
+            const x = ev.clientX - 105;
+            const y = ev.clientY - 80;
+            const newNote = { text: "", x, y, user: currentUser };
+            addNote(newNote);
+          }
+          document.removeEventListener("click", placeNote);
+        }
+
+        setTimeout(() => {
+          document.addEventListener("click", placeNote);
+        }, 10);
+      }
+    });
+
+    // Online user counter
+    function updateOnlineCount() {
+      fetch(`${API_BASE}/online_count`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('onlineCount').textContent = `Online: ${data.count}`;
+        });
+    }
+    setInterval(updateOnlineCount, 5000);
+    updateOnlineCount();
+
+    setInterval(loadNotes, 2000);
+    loadNotes();
   </script>
 </body>
 </html>
